@@ -101,6 +101,7 @@ fun RecipeDetailScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddIngredientToRecipeDialog(availableIngredients: List<Ingredient>, onDismiss: () -> Unit, onAdd: (Long, Double) -> Unit) {
     var selectedId by remember { mutableStateOf<Long?>(null) }
