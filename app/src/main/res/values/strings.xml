@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Kalkulator HPP</string>
+    <string name="currency_symbol">Rp</string>
+</resources>

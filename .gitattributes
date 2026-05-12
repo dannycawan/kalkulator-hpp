@@ -1,0 +1,11 @@
+# Auto detect text files and ensure LF line endings
+* text=auto eol=lf
+
+# Gradle wrapper must use LF on all platforms
+gradlew text eol=lf
+
+# Windows batch files must use CRLF
+*.bat text eol=crlf
+
+# Binary files
+*.jar binary

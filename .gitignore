@@ -1,0 +1,15 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/app/build
+*.hprof
+
+# Don't ignore gradle wrapper jar (needed for builds)
+!gradle/wrapper/gradle-wrapper.jar
