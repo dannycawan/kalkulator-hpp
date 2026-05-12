@@ -7,7 +7,9 @@ import androidx.room.PrimaryKey
 data class Ingredient(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val unit: String,               // e.g., "gram", "ml"
+    val unit: String,               // e.g., "gram", "ml", "pcs", "kg", "liter", "sdm"
     val pricePerUnit: Double,       // price per unit in local currency
-    val supplier: String? = null
+    val stock: Double = 0.0,        // stok saat ini
+    val supplier: String? = null,
+    val notes: String = ""          // keterangan
 )

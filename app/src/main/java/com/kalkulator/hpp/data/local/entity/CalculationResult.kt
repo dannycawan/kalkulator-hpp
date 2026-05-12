@@ -7,8 +7,10 @@ import androidx.room.PrimaryKey
 data class CalculationResult(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val recipeName: String,
+    val category: String = "",
     val totalMaterialCost: Double,
     val laborCost: Double,
+    val depreciationCost: Double = 0.0,
     val overheadCost: Double,
     val yield: Int,
     val hppPerUnit: Double,

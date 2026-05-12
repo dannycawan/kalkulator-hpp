@@ -9,6 +9,9 @@ interface IngredientDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(ingredient: Ingredient): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(ingredients: List<Ingredient>)
+
     @Update
     suspend fun update(ingredient: Ingredient)
 
@@ -20,4 +23,13 @@ interface IngredientDao {
 
     @Query("SELECT * FROM ingredients WHERE id = :id")
     suspend fun getById(id: Long): Ingredient?
+
+    @Query("SELECT * FROM ingredients WHERE name LIKE '%' || :query || '%' ORDER BY name ASC")
+    fun searchByName(query: String): Flow<List<Ingredient>>
+
+    @Query("UPDATE ingredients SET stock = :stock WHERE id = :id")
+    suspend fun updateStock(id: Long, stock: Double)
+
+    @Query("SELECT COUNT(*) FROM ingredients")
+    fun getCount(): Flow<Int>
 }

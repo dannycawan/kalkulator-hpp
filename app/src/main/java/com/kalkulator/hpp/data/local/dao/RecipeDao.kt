@@ -20,4 +20,16 @@ interface RecipeDao {
 
     @Query("SELECT * FROM recipes WHERE id = :id")
     suspend fun getById(id: Long): Recipe?
+
+    @Query("SELECT * FROM recipes WHERE name LIKE '%' || :query || '%' ORDER BY name ASC")
+    fun searchByName(query: String): Flow<List<Recipe>>
+
+    @Query("SELECT * FROM recipes WHERE category = :category ORDER BY name ASC")
+    fun getByCategory(category: String): Flow<List<Recipe>>
+
+    @Query("SELECT COUNT(*) FROM recipes")
+    fun getCount(): Flow<Int>
+
+    @Query("SELECT DISTINCT category FROM recipes WHERE category != '' ORDER BY category ASC")
+    fun getAllCategories(): Flow<List<String>>
 }

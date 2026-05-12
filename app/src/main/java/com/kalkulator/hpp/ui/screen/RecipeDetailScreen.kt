@@ -2,11 +2,11 @@ package com.kalkulator.hpp.ui.screen
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,14 +31,27 @@ fun RecipeDetailScreen(
     val allIngredients by ingredientViewModel.ingredients.collectAsState()
     val currencyFormat = remember { NumberFormat.getCurrencyInstance(Locale("id", "ID")) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf<Long?>(null) }
+    var scaleFactor by remember { mutableStateOf(1) }
 
     val currentRecipe = recipe ?: return
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(currentRecipe.name) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali") } }
+                title = {
+                    Column {
+                        Text(currentRecipe.name)
+                        if (currentRecipe.category.isNotBlank()) {
+                            Text(currentRecipe.category, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali") } },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             )
         },
         floatingActionButton = {
@@ -47,15 +60,48 @@ fun RecipeDetailScreen(
             }
         }
     ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Recipe info
             item {
                 if (currentRecipe.description.isNotBlank()) {
                     Text(currentRecipe.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(4.dp))
+                }
+                if (currentRecipe.notes.isNotBlank()) {
+                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Row(Modifier.padding(12.dp)) {
+                            Icon(Icons.Default.Note, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(8.dp))
+                            Text(currentRecipe.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
                 }
                 Text("Yield: ${currentRecipe.yield} unit", style = MaterialTheme.typography.bodyMedium)
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                Text("Bahan Baku", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+
+            // Scaling
+            item {
+                Text("Scaling Porsi", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val scales = listOf(1, 10, 50, 100, 500)
+                    items(scales) { s ->
+                        FilterChip(
+                            selected = scaleFactor == s,
+                            onClick = { scaleFactor = s },
+                            label = { Text("${s}x") }
+                        )
+                    }
+                }
+            }
+
+            item {
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                Text("Bahan Baku ${if (scaleFactor > 1) "(${scaleFactor}x porsi)" else ""}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
 
             if (recipeIngredients.isEmpty()) {
@@ -65,14 +111,15 @@ fun RecipeDetailScreen(
             }
 
             items(recipeIngredients) { ing ->
+                val scaledQty = ing.quantity * scaleFactor
                 ElevatedCard(Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(ing.name, fontWeight = FontWeight.SemiBold)
-                            Text("${ing.quantity} ${ing.unit} × ${currencyFormat.format(ing.pricePerUnit)}", style = MaterialTheme.typography.bodySmall)
-                            Text("Subtotal: ${currencyFormat.format(ing.quantity * ing.pricePerUnit)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            Text("$scaledQty ${ing.unit} × ${currencyFormat.format(ing.pricePerUnit)}", style = MaterialTheme.typography.bodySmall)
+                            Text("Subtotal: ${currencyFormat.format(scaledQty * ing.pricePerUnit)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         }
-                        IconButton(onClick = { recipeViewModel.removeIngredient(ing.crossRefId) }) {
+                        IconButton(onClick = { showDeleteDialog = ing.crossRefId }) {
                             Icon(Icons.Default.Delete, "Hapus", tint = MaterialTheme.colorScheme.error)
                         }
                     }
@@ -82,10 +129,17 @@ fun RecipeDetailScreen(
             if (recipeIngredients.isNotEmpty()) {
                 item {
                     HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                    val total = recipeIngredients.sumOf { it.quantity * it.pricePerUnit }
-                    Text("Total Biaya Bahan: ${currencyFormat.format(total)}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                    val total = recipeIngredients.sumOf { it.quantity * it.pricePerUnit * scaleFactor }
+                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                        Row(Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text("Total Biaya Bahan ${if (scaleFactor > 1) "(${scaleFactor}x)" else ""}", Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                            Text(currencyFormat.format(total), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                        }
+                    }
                 }
             }
+
+            item { Spacer(Modifier.height(72.dp)) }
         }
     }
 
@@ -97,6 +151,22 @@ fun RecipeDetailScreen(
                 recipeViewModel.addIngredient(currentRecipe.id, ingredientId, qty)
                 showAddDialog = false
             }
+        )
+    }
+
+    // Delete confirmation
+    showDeleteDialog?.let { crossRefId ->
+        val ingName = recipeIngredients.find { it.crossRefId == crossRefId }?.name ?: "bahan"
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text("Hapus Bahan?") },
+            text = { Text("\"$ingName\" akan dihapus dari resep ini.") },
+            confirmButton = {
+                TextButton(onClick = { recipeViewModel.removeIngredient(crossRefId); showDeleteDialog = null }) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = null }) { Text("Batal") } }
         )
     }
 }
