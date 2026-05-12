@@ -215,7 +215,7 @@ private fun QuickActionButton(
     label: String,
     onClick: () -> Unit
 ) {
-    OutlinedCard(modifier, onClick = onClick) {
+    OutlinedCard(onClick = onClick, modifier = modifier) {
         Column(
             Modifier.fillMaxWidth().padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
