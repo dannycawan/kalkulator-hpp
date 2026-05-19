@@ -28,7 +28,8 @@ fun MoreMenuScreen(onNavigate: (String) -> Unit) {
         MoreMenuItem("overhead", "Biaya Overhead", "Sewa, listrik, internet, dll", Icons.Default.Receipt),
         MoreMenuItem("history", "Riwayat & Arsip", "Semua perhitungan tersimpan", Icons.Default.History),
         MoreMenuItem("templates", "Template Resep", "Resep siap pakai dari bawaan", Icons.Default.AutoAwesome),
-        MoreMenuItem("settings", "Pengaturan", "Tema, backup, produksi harian", Icons.Default.Settings)
+        MoreMenuItem("settings", "Pengaturan", "Tema, backup, produksi harian", Icons.Default.Settings),
+        MoreMenuItem("guide", "Panduan Penggunaan", "Cara pakai aplikasi step-by-step", Icons.Default.HelpOutline)
     )
 
     Scaffold(

@@ -32,6 +32,7 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     data object History : Screen("history", "Riwayat", Icons.Default.History)
     data object Templates : Screen("templates", "Template", Icons.Default.AutoAwesome)
     data object Settings : Screen("settings", "Pengaturan", Icons.Default.Settings)
+    data object Guide : Screen("guide", "Panduan", Icons.Default.HelpOutline)
     data object RecipeDetail : Screen("recipe/{recipeId}", "Detail Resep", Icons.Default.MenuBook)
 }
 
@@ -156,6 +157,10 @@ fun NavGraph(appModule: AppModule, useDarkTheme: Boolean) {
 
             composable(Screen.Settings.route) {
                 SettingsScreen(settingsVM)
+            }
+
+            composable(Screen.Guide.route) {
+                GuideScreen { navController.popBackStack() }
             }
 
             // Recipe detail

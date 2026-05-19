@@ -1,3 +1,10 @@
+/*
+ * Tujuan: State management kalkulator HPP — input biaya, kalkulasi hasil, simulasi platform
+ * Caller: NavGraph.kt (viewModel factory), CalculatorScreen.kt
+ * Dependensi: HppCalculator (domain), CalculationRepository (data), MerchantPlatforms
+ * Main Functions: recalculate(), saveCalculation(), selectPlatform(), setDailyProduction(), setXxx() setters
+ * Side Effects: DB write via calculationRepository.insert() saat saveCalculation()
+ */
 package com.kalkulator.hpp.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -17,9 +24,9 @@ import kotlinx.coroutines.launch
 data class MerchantPlatform(
     val name: String,
     val emoji: String,
-    val defaultFeePct: Double,     // komisi default (%)
+    val defaultFeePct: Double,
     val hasPackagingFee: Boolean = false,
-    val packagingFeeDefault: Double = 0.0  // biaya packaging default (Rp)
+    val packagingFeeDefault: Double = 0.0
 )
 
 /** Comparison result for each platform */
@@ -55,15 +62,24 @@ data class CalculatorUiState(
     val overheadCost: Double = 0.0,
     val yield: Int = 1,
     val marginPct: Double = 30.0,
+    val dailyProduction: Int = 50,
+    // Hasil kalkulasi utama
     val totalMaterialCost: Double = 0.0,
     val hppPerUnit: Double = 0.0,
+    val minimumPrice: Double = 0.0,       // = hppPerUnit, label eksplisit batas bawah harga
     val suggestedPrice: Double = 0.0,
-    // Multi-margin recommendations
+    // Harga psikologis
+    val roundedPrice: Double = 0.0,       // bulatkan ke kelipatan 500 terdekat ke atas
+    val roundedMarginPct: Double = 0.0,   // margin aktual setelah pembulatan
+    // Rekomendasi 3 tier (margin dari harga jual)
     val price30: Double = 0.0,
     val price40: Double = 0.0,
     val price50: Double = 0.0,
     // BEP
     val bepUnits: Int = 0,
+    val bepDays: Int = 0,                 // estimasi hari berdasarkan dailyProduction
+    // Peringatan
+    val marginThin: Boolean = false,      // true jika marginPct < 15%
     // Promo simulation
     val discountPct: Double = 0.0,
     val platformFeePct: Double = 0.0,
@@ -72,10 +88,10 @@ data class CalculatorUiState(
     val priceAfterFee: Double = 0.0,
     val profitAfterPromo: Double = 0.0,
     // Selected merchant
-    val selectedPlatformIndex: Int = 0, // index into MerchantPlatforms.platforms
+    val selectedPlatformIndex: Int = 0,
+    val bestPlatformIndex: Int = -1,      // index platform profit tertinggi (exclude Custom)
     // Platform comparison table
     val platformComparisons: List<PlatformComparison> = emptyList(),
-    // State
     val saved: Boolean = false
 )
 
@@ -95,6 +111,7 @@ class CalculatorViewModel(private val calculationRepository: CalculationReposito
     fun setDiscountPct(d: Double) { _state.value = _state.value.copy(discountPct = d.coerceIn(0.0, 100.0)); recalculate() }
     fun setPlatformFeePct(f: Double) { _state.value = _state.value.copy(platformFeePct = f.coerceIn(0.0, 100.0)); recalculate() }
     fun setPackagingFee(fee: Double) { _state.value = _state.value.copy(packagingFee = fee.coerceAtLeast(0.0)); recalculate() }
+    fun setDailyProduction(dp: Int) { if (dp > 0) { _state.value = _state.value.copy(dailyProduction = dp); recalculate() } }
 
     fun selectPlatform(index: Int) {
         val platform = MerchantPlatforms.platforms.getOrNull(index) ?: return
@@ -113,7 +130,11 @@ class CalculatorViewModel(private val calculationRepository: CalculationReposito
         val hpp = if (s.yield > 0) totalCost / s.yield else 0.0
         val price = if (hpp > 0 && s.marginPct < 100) HppCalculator.suggestedPrice(hpp, s.marginPct) else 0.0
 
-        // Multi-margin
+        // Harga psikologis — bulatkan ke kelipatan 500 ke atas
+        val roundedPrice = HppCalculator.roundUpToNearest(price)
+        val roundedMarginPct = HppCalculator.actualMarginPct(roundedPrice, hpp)
+
+        // Rekomendasi 3 tier
         val p30 = if (hpp > 0) HppCalculator.suggestedPrice(hpp, 30.0) else 0.0
         val p40 = if (hpp > 0) HppCalculator.suggestedPrice(hpp, 40.0) else 0.0
         val p50 = if (hpp > 0) HppCalculator.suggestedPrice(hpp, 50.0) else 0.0
@@ -121,9 +142,14 @@ class CalculatorViewModel(private val calculationRepository: CalculationReposito
         // BEP
         val fixedCost = s.depreciationCost + s.overheadCost
         val profitPerUnit = price - hpp
-        val bep = if (profitPerUnit > 0) (fixedCost / profitPerUnit).toInt() + 1 else 0
+        val bepUnits = if (profitPerUnit > 0) (fixedCost / profitPerUnit).toInt() + 1 else 0
+        val bepDays = if (bepUnits > 0 && s.dailyProduction > 0)
+            kotlin.math.ceil(bepUnits.toDouble() / s.dailyProduction).toInt() else 0
 
-        // Promo simulation with current platform
+        // Peringatan margin tipis
+        val marginThin = hpp > 0 && s.marginPct < 15.0
+
+        // Promo simulation
         val afterDiscount = price * (1 - s.discountPct / 100.0)
         val feeAmount = afterDiscount * (s.platformFeePct / 100.0)
         val afterFee = afterDiscount - feeAmount - s.packagingFee
@@ -151,16 +177,29 @@ class CalculatorViewModel(private val calculationRepository: CalculationReposito
             }
         } else emptyList()
 
+        // Platform terbaik (exclude Custom di index 6)
+        val bestPlatformIdx = comparisons
+            .mapIndexed { idx, comp -> idx to comp }
+            .filter { (_, comp) -> comp.platform.name != "Custom" }
+            .maxByOrNull { (_, comp) -> comp.profit }
+            ?.first ?: -1
+
         _state.value = s.copy(
             totalMaterialCost = materialCost,
             hppPerUnit = hpp,
+            minimumPrice = hpp,
             suggestedPrice = price,
+            roundedPrice = roundedPrice,
+            roundedMarginPct = roundedMarginPct,
             price30 = p30, price40 = p40, price50 = p50,
-            bepUnits = bep,
+            bepUnits = bepUnits,
+            bepDays = bepDays,
+            marginThin = marginThin,
             priceAfterDiscount = afterDiscount,
             priceAfterFee = afterFee,
             profitAfterPromo = promoProfit,
             platformComparisons = comparisons,
+            bestPlatformIndex = bestPlatformIdx,
             saved = false
         )
     }
