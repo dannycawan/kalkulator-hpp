@@ -8,6 +8,7 @@
 package com.kalkulator.hpp.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -288,11 +289,13 @@ private fun GuideSection(
 private fun FaqItem(question: String, answer: String) {
     var expanded by remember { mutableStateOf(false) }
 
-    ElevatedCard(
-        Modifier.fillMaxWidth(),
-        onClick = { expanded = !expanded }
-    ) {
-        Column(Modifier.padding(16.dp)) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(16.dp)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
